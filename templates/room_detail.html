@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" type="text/css"
+          href="https://cdnjs.cloudflare.com/ajax/libs/spectrum/1.8.0/spectrum.min.css">
+    <script src="http://code.jquery.com/jquery-3.3.1.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/spectrum/1.8.0/spectrum.min.js"></script>
+    <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+    <title>Room: {{ room.get_name() }}, id:{{ room.get_id() }}</title>
+</head>
+<body>
+
+<h1>{{ room.get_name() }}</h1>
+{% if devices %}
+    {% for device in devices %}
+        {% if device.__class__.__name__ == 'Thermostat' %}
+            <h2 class="h2">Thermostat: {{ device.get_name() }}</h2>
+            <label class="switch">
+                <input type="checkbox" id="thermostat_{{ device.get_id() }}"
+                       onchange="send_status_device({{ device.get_id() }}, this,{{ room.get_id() }})"
+                       {% if device.get_status() %}checked{% endif %}>
+                <span class="slider round"></span>
+            </label>
+            <div class="text-field">
+                <label class="text-field__label" for="value_temp_{{ device.get_id() }}">Необходимая температура</label>
+                <input class="text-field__input" type="text" id="value_temp_{{ device.get_id() }}"
+                       placeholder="Значение">
+                <button class="custom-btn btn-3" onclick="send_focus_temperature({{ device.get_id() }})">
+                    <span>Установить</span></button>
+            </div>
+            <p>Текущая фокусная температура: {{ device.get_focus_temperature() }}°C</p>
+            <div class="text-field">
+                <label class="text-field__label" for="auto_threshold_{{ device.get_id() }}">Порог авто.
+                    включения</label>
+                <input class="text-field__input" type="text" id="auto_threshold_{{ device.get_id() }}"
+                       placeholder="Значение">
+                <button class="custom-btn btn-3" onclick="set_automatic_threshold({{ device.get_id() }})">
+                    <span>Установить</span></button>
+            </div>
+            <p> Текущая пороговая температура: {{ device.get_automatic_threshold() }}°C</p>
+        {% elif device.__class__.__name__ == 'Lamp' %}
+            <h2 class="h2">RGB Lamp: {{ device.get_name() }}</h2>
+            <div class="text-field">
+                <label class="text-field__label" for="value_brightness_{{ device.get_id() }}">Яркость</label>
+                <input class="text-field__input" type="text" id="value_brightness_{{ device.get_id() }}"
+                       placeholder="Значение">
+                <button class="custom-btn btn-3" onclick="send_brightness({{ device.get_id() }})">
+                    <span>Установить</span>
+                </button>
+                <p>Текущая яркость: {{ device.get_brightness() }} %</p>
+            </div>
+            <div class="text-field">
+                <label class="text-field__label" for="colorPicker_{{ device.get_id() }}">Цвет</label>
+                <input type="text" id="colorPicker_{{ device.get_id() }}">
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="lamp_{{ device.get_id() }}"
+                       onchange="send_status_device({{ device.get_id() }}, this, {{ room.get_id() }})"
+                       {% if device.get_status() %}checked{% endif %}>
+                <span class="slider round"></span>
+            </label>
+            <!-- Форма установки времени выключения -->
+            <form action="/set_lamp_off_time" method="post">
+                <label for="off_time_{{ device.get_id() }}">Время выключения (ЧЧ:ММ):</label>
+                <input type="time" id="off_time_{{ device.get_id() }}" name="off_time">
+                <input type="hidden" name="device_id" value="{{ device.get_id() }}">
+                <input type="hidden" name="room_id" value="{{ room.get_id() }}">
+                <input type="submit" value="Установить время выключения">
+            </form>
+            {% if device.get_off_time() %}
+                    <p>Назначенное время выключения: {{ device.get_off_time().strftime('%H:%M') }}</p>
+                {% else %}
+                    <p>Назначенное время выключения: не установлено</p>
+                {% endif %}
+
+        {% endif %}
+    {% endfor %}
+{% else %}
+    <p>No devices available.</p>
+{% endif %}
+
+{% if sensor_temp %}
+    <h2 class="h2">{{ room.get_name() }} temperature sensors:</h2>
+    <ul>
+        {% for sensor_name, sensor_value in sensor_temp.items() %}
+            <li class="sensor-item">
+                <span class="sensor-name">{{ sensor_name }}</span>:
+                <span class="sensor-value">{{ sensor_value }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No temperature sensors available.</p>
+{% endif %}
+
+{% if sensor_humidity %}
+    <h2 class="h2">{{ room.get_name() }} humidity sensors:</h2>
+    <ul>
+        {% for sensor_name, sensor_value in sensor_humidity.items() %}
+            <li class="sensor-item">
+                <span class="sensor-name">{{ sensor_name }}</span>:
+                <span class="sensor-value">{{ sensor_value }}</span>
+            </li>
+        {% endfor %}
+    </ul>
+{% else %}
+    <p>No humidity sensors available.</p>
+{% endif %}
+<hr>
+
+<script>
+    $(document).ready(function () {
+        {% for device in devices %}
+            {% if device.__class__.__name__ == 'Lamp' %}
+                $("#colorPicker_{{ device.get_id() }}").spectrum({
+                    preferredFormat: "rgb",
+                    showInput: true,
+                    showPalette: true,
+                    palette: [
+                        ["#ff0000", "#00ff00", "#0000ff"],
+                        ["#ffff00", "#ff00ff", "#00ffff"]
+                    ],
+                    change: function (color) {
+                        const selectedColor = color.toRgbString();
+                        $.ajax({
+                            type: "POST",
+                            url: "/update_color",
+                            data: {color: selectedColor, device_id: {{ device.get_id() }}},
+                            success: function (response) {
+                                console.log("Цвет успешно отправлен на сервер");
+                            }
+                        });
+                    }
+                });
+            {% endif %}
+        {% endfor %}
+    });
+</script>
+
+</body>
+</html>

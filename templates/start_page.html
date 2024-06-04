@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" type="text/css" href="../static/css/main.css">
+    <link rel="stylesheet" type="text/css"
+          href="https://cdnjs.cloudflare.com/ajax/libs/spectrum/1.8.0/spectrum.min.css">
+    <script src="http://code.jquery.com/jquery-3.3.1.js"></script>
+    <script src="../static/js/scripts.js"></script>
+    <title>Home page</title>
+</head>
+<body>
+<h1>Rooms</h1>
+
+<div class="room-info">
+    <div id="room-list-container">
+        {% include 'rooms_list.html' %}
+    </div>
+    <h2 class="h2">Подключение комнат и устройств:</h2>
+    <div class="text-field">
+        <label class="text-field__label" for="name">Добавить комнату</label>
+        <input class="text-field__input" type="text" id="value" placeholder="Введите название комнаты">
+        <button class="custom-btn btn-3" id="add_room_button" onclick="send_room()"><span>Добавить</span>
+        </button>
+    </div>
+</div>
+<div class="text-field">
+    <label class="text-field__label" for="device_name">Добавить устройство</label>
+    <input class="text-field__input" type="text" id="device_name" placeholder="Введите название устройства">
+    <select id="device_type">
+        <option value="thermostat">Thermostat</option>
+        <option value="lamp">Lamp</option>
+        <option value="sensor">Sensor</option>
+    </select>
+    <select id="room_id">
+        {% for room in rooms %}
+            <option value="{{ room.id }}">{{ room.name }}</option>
+        {% endfor %}
+    </select>
+    <div class="text-field" id="sensor_type_field" style="display:none;">
+        <label class="text-field__label" for="type_value">Тип значения (для датчика)</label>
+        <select id="type_value">
+            <option value="temperature">Температура</option>
+            <option value="humidity">Влажность</option>
+        </select>
+    </div>
+    <button class="custom-btn btn-3" id="add_device_button" onclick="send_device()"><span>Добавить</span></button>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $('#device_type').on('change', function () {
+            if ($(this).val() === 'sensor') {
+                $('#sensor_type_field').show();
+            } else {
+                $('#sensor_type_field').hide();
+            }
+        });
+    });
+
+    function send_device() {
+        const deviceName = document.getElementById("device_name").value;
+        const deviceType = document.getElementById("device_type").value;
+        const roomId = document.getElementById("room_id").value;
+
+        if (deviceName && deviceType && roomId) {
+            let data = {
+                "device_name": deviceName,
+                "device_type": deviceType,
+                "room_id": roomId
+            };
+            if (deviceType === 'sensor') {
+                data['type_value'] = document.getElementById("type_value").value;
+            }
+
+            $.ajax({
+                type: 'POST',
+                url: '/create_device',
+                dataType: 'json',
+                contentType: 'application/x-www-form-urlencoded',
+                data: data,
+                success: function (response) {
+                    if (response.error) {
+                        alert(response.error);
+                    } else {
+                        $("#room-list-container").load("/ #room-list-container");
+                        $('#device_name').val('');
+                    }
+                },
+                error: function (response) {
+                    alert('Ошибка при добавлении устройства');
+                }
+            });
+        } else {
+            alert('Заполните все поля');
+        }
+    }
+</script>
+</body>
+</html>

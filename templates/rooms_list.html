@@ -1,0 +1,10 @@
+<ul id="room-list">
+    {% for room_info in rooms %}
+        <li class="room-item">
+            <a href="{{ url_for('room_detail', room_id=room_info.id) }}">
+                <span class="room-id">{{ room_info.id }}</span>
+                <span class="room-name">{{ room_info.name }}</span>
+            </a>
+        </li>
+    {% endfor %}
+</ul>
